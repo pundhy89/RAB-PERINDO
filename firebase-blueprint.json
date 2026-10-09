@@ -1,0 +1,30 @@
+{
+  "entities": {
+    "RABDocument": {
+      "title": "RABDocument",
+      "description": "Rencana Anggaran Biaya (RAB) document containing budget items and party metadata",
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "description": "Array of RAB subscription budget items"
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Metadata including Kop Surat, doc number, period, and signatories"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of last modification"
+        }
+      },
+      "required": ["items", "metadata"]
+    }
+  },
+  "firestore": {
+    "/rab_documents/{docId}": {
+      "schema": "RABDocument",
+      "description": "Live synchronized budget proposals"
+    }
+  }
+}

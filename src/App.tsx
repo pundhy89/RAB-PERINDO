@@ -7,6 +7,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { RABItem, RABMetadata, INITIAL_RAB_DATA, INITIAL_METADATA, DEFAULT_CATEGORIES } from './types';
 import { generateRABText, exportToCSV } from './utils';
 import { exportElementToF4PDF, generateNativeF4PDF } from './utils/pdfExport';
+import { subscribeToRemoteRAB, saveRemoteRAB, getRemoteRAB } from './firebase';
 import { OfficialLetterhead } from './components/OfficialLetterhead';
 import { BudgetStats } from './components/BudgetStats';
 import { CategoryFilter } from './components/CategoryFilter';
@@ -26,6 +27,7 @@ import {
   Layers,
   Loader2,
   Building,
+  Cloud,
 } from 'lucide-react';
 
 // Persistent storage keys that never get wiped out between sessions or previews
@@ -78,6 +80,7 @@ export default function App() {
   const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [activeNav, setActiveNav] = useState<string>('pdf');
+  const [isCloudSynced, setIsCloudSynced] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Sync to local storage immediately whenever state changes
@@ -97,11 +100,56 @@ export default function App() {
     }
   }, [metadata]);
 
+  // Real-time synchronization via Firebase Firestore (Syncs between AI Studio Preview and Vercel Deployment)
+  useEffect(() => {
+    let isMounted = true;
+
+    // Listen to real-time changes
+    const unsubscribe = subscribeToRemoteRAB(
+      (remoteState) => {
+        if (!isMounted) return;
+        setIsCloudSynced(true);
+        if (remoteState.items && Array.isArray(remoteState.items)) {
+          setItems(remoteState.items);
+        }
+        if (remoteState.metadata && typeof remoteState.metadata === 'object') {
+          setMetadata(remoteState.metadata);
+        }
+      },
+      (error) => {
+        console.warn('Real-time sync notice:', error);
+      }
+    );
+
+    // Initial check: if Firestore is empty on first boot, seed it with current state
+    getRemoteRAB().then((remoteData) => {
+      if (!remoteData) {
+        saveRemoteRAB(items, metadata).then(() => {
+          if (isMounted) setIsCloudSynced(true);
+        }).catch(() => {});
+      } else {
+        if (isMounted) setIsCloudSynced(true);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, []);
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
       setToastMessage(null);
     }, 3200);
+  };
+
+  // Helper to push updates to Firestore so Vercel & all other clients update immediately
+  const broadcastToCloud = (newItems: RABItem[], newMeta: RABMetadata) => {
+    saveRemoteRAB(newItems, newMeta)
+      .then(() => setIsCloudSynced(true))
+      .catch((err) => console.warn('Could not broadcast to Firestore:', err));
   };
 
   // Grand total calculation of active items
@@ -128,13 +176,14 @@ export default function App() {
     return counts;
   }, [items]);
 
-  // Handlers for table manipulation
+  // Handlers for table manipulation with real-time broadcast
   const handleUpdateQty = (id: string, qty: number) => {
     setItems((prev) => {
       const updated = prev.map((item) => (item.id === id ? { ...item, qty: Math.max(0, qty) } : item));
       try {
         localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(updated));
       } catch {}
+      broadcastToCloud(updated, metadata);
       return updated;
     });
   };
@@ -145,6 +194,7 @@ export default function App() {
       try {
         localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(updated));
       } catch {}
+      broadcastToCloud(updated, metadata);
       return updated;
     });
   };
@@ -155,6 +205,7 @@ export default function App() {
       try {
         localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(updated));
       } catch {}
+      broadcastToCloud(updated, metadata);
       return updated;
     });
   };
@@ -166,6 +217,7 @@ export default function App() {
         try {
           localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(updated));
         } catch {}
+        broadcastToCloud(updated, metadata);
         return updated;
       });
       showToast('Item berhasil dihapus');
@@ -185,6 +237,7 @@ export default function App() {
       try {
         localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(updated));
       } catch {}
+      broadcastToCloud(updated, metadata);
       return updated;
     });
     showToast('Item berhasil diduplikasi');
@@ -200,6 +253,7 @@ export default function App() {
       try {
         localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(updated));
       } catch {}
+      broadcastToCloud(updated, metadata);
       return updated;
     });
     showToast(`"${newItem.name}" ditambahkan ke tabel`);
@@ -213,6 +267,7 @@ export default function App() {
         localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(INITIAL_RAB_DATA));
         localStorage.setItem(STORAGE_KEY_META, JSON.stringify(INITIAL_METADATA));
       } catch {}
+      broadcastToCloud(INITIAL_RAB_DATA, INITIAL_METADATA);
       showToast('Draf dikembalikan ke pengaturan awal');
     }
   };
@@ -379,6 +434,7 @@ export default function App() {
         - Border transparan 50% warna putih: border-white/50
         - Ikon aktif: biru (text-blue-500)
         - Ikon tidak aktif: abu-abu (text-slate-400)
+        - Dilengkapi indikator Cloud Realtime Sync (Firebase ↔ Vercel)
       */}
       <nav 
         aria-label="Menu Aksi Dokumen"
@@ -504,6 +560,14 @@ export default function App() {
         >
           <RotateCcw className="w-5 h-5" />
         </button>
+
+        {/* 8. Indikator Status Cloud Sync (Firebase Firestore) */}
+        <div 
+          className="p-2 rounded-full text-emerald-400 hover:bg-white/5 transition-colors cursor-help"
+          title={isCloudSynced ? "Terhubung ke Firebase Firestore: Data tersinkronisasi otomatis secara Real-Time antara AI Studio & Vercel!" : "Menghubungkan ke Firebase Cloud..."}
+        >
+          <Cloud className={`w-4 h-4 ${isCloudSynced ? 'text-emerald-400' : 'text-slate-500'}`} />
+        </div>
       </nav>
 
       {/* Item Modal (Add/Edit) */}
@@ -525,6 +589,7 @@ export default function App() {
           try {
             localStorage.setItem(STORAGE_KEY_META, JSON.stringify(newMeta));
           } catch {}
+          broadcastToCloud(items, newMeta);
           showToast('Data jabatan dan informasi dokumen berhasil diperbarui!');
         }}
         onReset={() => {
@@ -532,6 +597,7 @@ export default function App() {
           try {
             localStorage.setItem(STORAGE_KEY_META, JSON.stringify(INITIAL_METADATA));
           } catch {}
+          broadcastToCloud(items, INITIAL_METADATA);
           showToast('Data dokumen dikembalikan ke pengaturan awal');
         }}
       />
