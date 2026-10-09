@@ -30,7 +30,7 @@ export const MetaModal: React.FC<Props> = ({
       setFormData(metadata);
       setActiveTab(initialTab || 'kop');
     }
-  }, [isOpen]);
+  }, [isOpen, initialTab, metadata]);
 
   if (!isOpen) return null;
 
@@ -128,7 +128,7 @@ export const MetaModal: React.FC<Props> = ({
             }`}
           >
             <FileText className="w-3.5 h-3.5" />
-            <span>3. Nomor & Informasi Dokumen</span>
+            <span>3. Catatan & Justifikasi Pengajuan</span>
           </button>
         </div>
 

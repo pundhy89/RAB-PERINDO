@@ -28,6 +28,7 @@ import {
   Loader2,
   Building,
   Cloud,
+  Edit3,
 } from 'lucide-react';
 
 // Persistent storage keys that never get wiped out between sessions or previews
@@ -76,7 +77,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
   const [isMetaModalOpen, setIsMetaModalOpen] = useState(false);
-  const [metaModalTab, setMetaModalTab] = useState<'kop' | 'info' | 'ttd'>('ttd');
+  const [metaModalTab, setMetaModalTab] = useState<'kop' | 'info' | 'ttd'>('info');
   const [isCopyModalOpen, setIsCopyModalOpen] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [activeNav, setActiveNav] = useState<string>('pdf');
@@ -408,9 +409,19 @@ export default function App() {
 
             {/* Catatan penting dalam tulisan miring di atas tanda tangan / di bawah jumlah harga */}
             {metadata.notes && (
-              <div className="text-xs text-slate-600 leading-relaxed italic px-1 pt-1 pb-1">
-                <span className="font-bold not-italic text-slate-800 mr-1.5">Catatan Penting:</span>
-                <span>{metadata.notes}</span>
+              <div className="text-xs text-slate-600 leading-relaxed italic px-1 pt-1 pb-1 flex items-start justify-between gap-2">
+                <div>
+                  <span className="font-bold not-italic text-slate-800">Catatan Penting: </span>
+                  <span>{metadata.notes}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openMetaModalWithTab('info')}
+                  className="no-print inline-flex items-center text-slate-400 hover:text-blue-600 p-0.5 rounded transition shrink-0"
+                  title="Edit Catatan Penting (Buka Tab 3. Catatan & Justifikasi Pengajuan)"
+                >
+                  <Edit3 className="w-3 h-3" />
+                </button>
               </div>
             )}
 
