@@ -1,0 +1,6 @@
+{
+  "name": "RAB Media Digital - Partai Perindo",
+  "description": "Aplikasi penyusunan dan pengajuan Rencana Anggaran Biaya (RAB) langganan aplikasi digital dan periklanan resmi Koordinator Media Digital Partai Perindo.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
